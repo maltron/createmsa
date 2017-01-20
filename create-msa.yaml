@@ -1,0 +1,86 @@
+#!/usr/bin/env ansible-playbook
+---
+- name: Creating MicroService structure, directories and all the necessary files
+  hosts: localhost
+  connection: local
+  vars:
+     package_name: net.nortlam.example
+     project_name: usermanagement
+     directory: /tmp/msa
+  tasks:
+     - name: Create a variable where the destination will be
+       set_fact: microservice_destination={{ directory }}/{{ project_name }}
+
+     - name: Creating all the necessary directory structure
+       file: path={{ microservice_destination }}/{{ item }} state=directory
+       with_items:
+         - bin 
+         - src/main/resources/META-INF
+         - src/main/webapp/WEB-INF
+         - src/main/java/
+
+     - name: Directory where all the source code will be
+       set_fact: java_source_code={{ microservice_destination }}/src/main/java/{{ package_name | regex_replace("\.", "/") }}
+
+     - name: Create Source Code Directory based on Project's Package
+       file: path={{ java_source_code }} state=directory
+
+     - name: Create Subdirectories for the Source Code to be generated
+       file: path={{ java_source_code}}/{{ item }} state=directory
+       with_items:
+         - error
+         - setup
+         - entity
+
+     - name: Source Code{{ ':' }} Java
+       template: src=template/src/main/java/net/nortlam/template/{{ item }}.j2
+                 dest={{ java_source_code }}/{{ item }} 
+       with_items:
+         - error/NotFoundMapper.java
+         - error/ServerInternalErrorMapper.java
+         - error/NoContentMapper.java
+         - error/ServerInternalErrorException.java
+         - error/NotFoundException.java
+         - error/NoContentException.java
+         - Service.java
+         - Resource.java
+         - entity/Country.java
+         - setup/MongoProvider.java
+         - setup/RESTEnabled.java
+
+     - name: Source Code{{ ':' }} Everything else
+       template: src=template/{{ item }}.j2
+                 dest={{ microservice_destination }}/{{ item }}
+       with_items:
+         - pom.xml
+         - .gitignore
+         - src/main/webapp/index.html
+         - src/main/webapp/WEB-INF/beans.xml
+         - src/main/webapp/WEB-INF/jboss-web.xml
+         - src/main/webapp/WEB-INF/web.xml
+         - nb-configuration.xml
+         - bin/openshift-logs-database.sh
+         - bin/openshift-rsync.sh
+         - bin/mongo-shell.sh
+         - bin/test.sh
+         - bin/openshift-logs-applicationserver.sh
+         - bin/openshift-portforward.sh
+
+     - name: Files in bin must be able to have Execution permission
+       file: path={{ microservice_destination }}/bin/{{ item }} mode="a+x"
+       with_items:
+         - openshift-logs-database.sh
+         - openshift-rsync.sh
+         - mongo-shell.sh
+         - test.sh
+         - openshift-logs-applicationserver.sh
+         - openshift-portforward.sh
+
+     - name: Maven doing the first compilation
+       command: mvn --file {{ microservice_destination }}/pom.xml clean package -DskipTests
+
+     - name: Creating the project into OpenShift
+       command: oc new-project {{ project_name }}
+        
+     - name: Creating the application with all the necessary Pods
+       command: oc new-app wildfly-mongo --param=APPLICATION_NAME={{ project_name }}
