@@ -7,7 +7,31 @@
      package_name: net.nortlam.example
      project_name: usermanagement
      directory: /tmp/msa
+     broker_namespace: activemq
+     broker_service: activemq-amq
   tasks:
+     - name: Obtaining Broker's IP
+       command: oc get services --namespace {{ broker_namespace }} --output jsonpath='{.items[?(@.metadata.name=="{{ broker_service }}-tcp")].spec.clusterIP}'
+       register: broker_ip
+       tags:
+          - broker
+
+     - name: Objtaining Broker's Username
+       command: oc get deploymentconfig/{{ broker_service }} --namespace {{ broker_namespace }} --output jsonpath='{$..env[?(@.name=="AMQ_USER")].value}'
+       register: broker_username
+       tags:
+          - broker
+
+     - name: Obtaining Broker's Password
+       command: oc get deploymentconfig/{{ broker_service }} --namespace {{ broker_namespace }} --output jsonpath='{$..env[?(@.name=="AMQ_PASSWORD")].value}'
+       register: broker_password
+       tags:
+          - broker
+
+     - debug: msg=">>> Broker's IP{{ ':' }} {{ broker_ip.stdout }} Username{{ ':' }} {{ broker_username.stdout }}  Password{{ ':' }} {{ broker_password.stdout }}" 
+       tags: 
+          - broker
+
      - name: Create a variable where the destination will be
        set_fact: microservice_destination={{ directory }}/{{ project_name }}
 
@@ -83,4 +107,4 @@
        command: oc new-project {{ project_name }}
         
      - name: Creating the application with all the necessary Pods
-       command: oc new-app wildfly-mongo --param=APPLICATION_NAME={{ project_name }}
+       command: oc new-app wildfly-mongo --param=APPLICATION_NAME={{ project_name }},BROKER_ADDRESS={{ broker_ip.stdout }},BROKER_USERNAME={{ broker_username.stdout }},BROKER_PASSWORD={{ broker_password.stdout }}
