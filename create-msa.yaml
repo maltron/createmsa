@@ -9,7 +9,48 @@
      directory: /tmp/msa
      broker_namespace: activemq
      broker_service: activemq-amq
+     broker_topics: "alpha, bravo" 
+     broker_queues: "first, second" 
   tasks:
+     - name: Running a simple Maven Command
+       command: mvn --version
+       register: maven_response
+       ignore_errors: True
+       tags: maven
+
+     - name: Does Maven exists ?
+       fail: msg="Maven Command not found. Please install it. http://maven.apache.org/download.cgi"
+       when: maven_response.rc != 0
+       tags: maven
+
+     - name: Running OpenShift's Client Command
+       command: oc version
+       register: oc_response
+       ignore_errors: True
+       tags: openshift
+
+     - name: Does OpenShift's Client exists ?
+       fail: msg="OpenShift's Client not found. Please install it. https://access.redhat.com/downloads/content/290"
+       when: oc_response.rc != 0
+       tags: openshift
+
+     - name: Check if there is any pods available on the broker
+       command: oc get pods --namespace {{ broker_namespace }}
+       register: pods_response
+       ignore_errors: True
+       tags:
+          - broker
+
+     - fail: msg="Please login into OpenShift first. oc login --username=myuser --insecure-skip-tls-verify --server=https{{ ':' }}//openshift.example.com{{ ':' }}8443"
+       when: '"system:anonymous" in pods_response.stderr'
+       tags:
+          - broker
+
+     - fail: msg="No Pods found. Please make sure there is a Broker runing in Namespace{{ ':' }}{{ broker_namespace }}  Service{{ ':' }}{{ broker_service }}"
+       when: pods_response.stdout_lines | length == 0
+       tags: 
+          - broker
+
      - name: Obtaining Broker's IP
        command: oc get services --namespace {{ broker_namespace }} --output jsonpath='{.items[?(@.metadata.name=="{{ broker_service }}-tcp")].spec.clusterIP}'
        register: broker_ip
@@ -55,6 +96,7 @@
          - error
          - setup
          - entity
+         - jms
 
      - name: Source Code{{ ':' }} Java
        template: src=template/src/main/java/net/nortlam/template/{{ item }}.j2
@@ -71,6 +113,18 @@
          - entity/Country.java
          - setup/MongoProvider.java
          - setup/RESTEnabled.java
+
+     - name: Source Code for Topics (if any)
+       template: src=template/src/main/java/net/nortlam/template/jms/TopicAlpha.java.j2
+                 dest={{ java_source_code }}/jms/Topic{{ item | title | trim }}.java
+       with_items: "{{ broker_topics.split(',') }}"
+       when: broker_topics is defined
+
+     - name: Source Code for Queues (if any)
+       template: src=template/src/main/java/net/nortlam/template/jms/QueueAlpha.java.j2
+                 dest={{ java_source_code }}/jms/Queue{{ item | title | trim }}.java
+       with_items: "{{ broker_queues.split(',') }}"
+       when: broker_queues is defined
 
      - name: Source Code{{ ':' }} Everything else
        template: src=template/{{ item }}.j2
@@ -108,3 +162,8 @@
         
      - name: Creating the application with all the necessary Pods
        command: oc new-app wildfly-mongo --param=APPLICATION_NAME={{ project_name }},BROKER_ADDRESS={{ broker_ip.stdout }},BROKER_USERNAME={{ broker_username.stdout }},BROKER_PASSWORD={{ broker_password.stdout }}
+       tags: newapp
+
+     - name: Updating enviroment varialbles{{ ':' }} Topics and Queues
+       command: "oc env deploymentconfig/{{ project_name }}-app BROKER_TOPICS='{{ broker_topics }}' BROKER_QUEUES='{{ broker_queues }}'"
+       tags: newapp

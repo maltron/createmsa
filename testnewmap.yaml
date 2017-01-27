@@ -1,0 +1,16 @@
+---
+- name: Testing 
+  hosts: localhost
+  connection: local
+  vars:
+     package_name: net.nortlam.example
+     project_name: usermanagement
+     directory: /tmp/msa
+     broker_namespace: activemq
+     broker_service: activemq-amq
+     broker_topics: "alpha, bravo"
+     broker_queues: "first, second"
+  tasks:
+     - name: Creating the application with all the necessary Pods
+       command: "oc new-app wildfly-mongo --param=APPLICATION_NAME={{ project_name }},BROKER_ADDRESS=\'172.30.219.226\',BROKER_USERNAME=\'user0Qs\',BROKER_PASSWORD=\'xxReu7gX\',BROKER_BROKER_TOPICS=\'{{ broker_topics }}\',BROKER_QUEUES=\'{{ broker_queues }}\'"
+

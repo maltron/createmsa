@@ -54,6 +54,13 @@ public class Resource {
         Country found = service.fetchInternet(internet);
         return Response.ok(found.toJson(queryParameters)).build();
     }
+
+    @GET @Path("/async/{jndi}/{message}")
+    public Response sendAsync(@PathParam("jndi") String jndi, @PathParam("message") String message) {
+        service.sendAsync(jndi, message);
+        
+        return Response.ok().build();
+    }
     
     /**
      * Used as a means to select which fields needs to be used */
