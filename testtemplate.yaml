@@ -1,0 +1,25 @@
+---
+- name: Running a template and saving the processed
+  hosts: localhost
+  connection: local
+  tasks:
+     - command: oc get template/wildfly-mongo --output yaml --namespace openshift
+       register: template_yaml
+
+     - debug: msg="{{ template_yaml.stdout }}"
+
+     - copy: content="{{ template_yaml.stdout }}" dest=/tmp/sometemplate.yaml
+
+     - lineinfile: dest=/tmp/sometemplate.yaml regexp="{{ item }}" state=absent
+       with_items:
+          - creationTimestamp
+          - namespace
+          - resourceVersion
+          - selfLink
+          - uid
+
+#     - command: oc process --filename /tmp/sometemplate.yaml --value=APPLICATION_NAME="example",BROKER_ADDRESS="122.2.2.2",BROKER_USERNAME="mauricio",BROKER_PASSWORD="leal",BROKER_TOPICS="inform, error"
+#       register: process_json
+
+#     - debug: msg="{{ process_json.stdout }}"
+

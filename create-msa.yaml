@@ -80,6 +80,7 @@
        file: path={{ microservice_destination }}/{{ item }} state=directory
        with_items:
          - bin 
+         - conf
          - src/main/resources/META-INF
          - src/main/webapp/WEB-INF
          - src/main/java/
@@ -161,9 +162,25 @@
        command: oc new-project {{ project_name }}
         
      - name: Creating the application with all the necessary Pods
-       command: oc new-app wildfly-mongo --param=APPLICATION_NAME={{ project_name }},BROKER_ADDRESS={{ broker_ip.stdout }},BROKER_USERNAME={{ broker_username.stdout }},BROKER_PASSWORD={{ broker_password.stdout }}
+       command: oc new-app wildfly-mongo --output yaml --param=APPLICATION_NAME={{ project_name }},BROKER_ADDRESS={{ broker_ip.stdout }},BROKER_USERNAME={{ broker_username.stdout }},BROKER_PASSWORD={{ broker_password.stdout }},BROKER_TOPICS=REPLACE_BROKER_TOPICS,BROKER_QUEUES=REPLACE_BROKER_QUEUES
+       register: newapp_yaml
        tags: newapp
 
-     - name: Updating enviroment varialbles{{ ':' }} Topics and Queues
-       command: "oc env deploymentconfig/{{ project_name }}-app BROKER_TOPICS='{{ broker_topics }}' BROKER_QUEUES='{{ broker_queues }}'"
+     - name: Copy the content generated into conf directory
+       copy: content={{ newapp_yaml.stdout }} dest={{ microservice_destination }}/conf/{{ project_name }}-template.yaml
+       tags: newapp
+
+     - name: Replace marker REPLACE_BROKER_TOPICS with the actual Topics
+       lineinfile: dest={{ microservice_destination }}/conf/{{ project_name }}-template.yaml
+                   regexp="REPLACE_BROKER_TOPICS" line="            value{{ ':' }} {{ broker_topics}}"
+       tags: newapp
+
+
+     - name: Replace marker REPLACE_BROKER_QUEUES with the actual Queues
+       lineinfile: dest={{ microservice_destination }}/conf/{{ project_name }}-template.yaml
+                   regexp="REPLACE_BROKER_QUEUES" line="            value{{ ':' }} {{ broker_queues}}"
+       tags: newapp
+
+     - name: Finally, create all the resources 
+       command: oc create --filename {{ microservice_destination }}/conf/{{ project_name }}-template.yaml --namespace {{ project_name }}
        tags: newapp
