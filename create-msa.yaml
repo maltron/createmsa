@@ -69,10 +69,6 @@
        tags:
           - broker
 
-     - debug: msg=">>> Broker's IP{{ ':' }} {{ broker_ip.stdout }} Username{{ ':' }} {{ broker_username.stdout }}  Password{{ ':' }} {{ broker_password.stdout }}" 
-       tags: 
-          - broker
-
      - name: Create a variable where the destination will be
        set_fact: microservice_destination={{ directory }}/{{ project_name }}
 
@@ -109,6 +105,10 @@
          - error/ServerInternalErrorException.java
          - error/NotFoundException.java
          - error/NoContentException.java
+         - error/CreateException.java
+         - error/CreateMapper.java
+         - error/MissingInformationException.java
+         - error/MissingInformationMapper.java
          - Service.java
          - Resource.java
          - entity/Country.java
