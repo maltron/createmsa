@@ -3,6 +3,7 @@
 - name: Creating MicroService structure, directories and all the necessary files
   hosts: localhost
   connection: local
+  gather_facts: False
   vars:
      package_name: net.nortlam.example
      project_name: usermanagement
