@@ -9,7 +9,7 @@
      project_name: usermanagement
      directory: /tmp/msa
      broker_namespace: activemq
-     broker_service: activemq-amq
+     broker_service: broker-amq
      broker_topics: "alpha, bravo" 
      broker_queues: "first, second" 
   tasks:
@@ -52,13 +52,13 @@
        tags: 
           - broker
 
-     - name: Obtaining Broker's IP
+     - name: Obtaining Broker's IP on Service{{ ':' }}{{ broker_service }}-tcp
        command: oc get services --namespace {{ broker_namespace }} --output jsonpath='{.items[?(@.metadata.name=="{{ broker_service }}-tcp")].spec.clusterIP}'
        register: broker_ip
        tags:
           - broker
 
-     - name: Objtaining Broker's Username
+     - name: Objtaining Broker's Username on DeploymentConfig{{ ':' }}{{ broker_service }}
        command: oc get deploymentconfig/{{ broker_service }} --namespace {{ broker_namespace }} --output jsonpath='{$..env[?(@.name=="AMQ_USER")].value}'
        register: broker_username
        tags:
